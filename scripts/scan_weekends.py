@@ -121,7 +121,7 @@ def offer_key(airport, destination, outbound, returning):
     identity = "|".join([
         airport,
         normalized(destination.get("name")),
-        normalized(destination.get("destination_airport", {}).get("code")),
+        normalized((destination.get("destination_airport") or {}).get("code")),
         outbound.isoformat(),
         returning.isoformat(),
         normalized(destination.get("airline")),
@@ -255,7 +255,6 @@ def main():
                     "airline": airline,
                     "link": link,
                 })
-                seen.add(key)
 
             # Pausa minima per non martellare il provider.
             time.sleep(0.2)
@@ -266,11 +265,11 @@ def main():
         for offer in new_offers:
             parts = [
                 "✈️ NUOVA OFFERTA WEEKEND",
-                f"{html.escape(offer['destination'])}, {html.escape(offer['country'])}",
-                f"Partenza: {offer['outbound']} da {offer['airport']} ({html.escape(offer['airport_name'])})",
+                f"{offer['destination']}, {offer['country']}",
+                f"Partenza: {offer['outbound']} da {offer['airport']} ({offer['airport_name']})",
                 f"Ritorno: {offer['return']}",
                 f"Prezzo indicato A/R: {offer['price']} EUR",
-                f"Volo diretto · {html.escape(offer['airline'])}",
+                f"Volo diretto · {offer['airline']}",
                 "Bagaglio: verificare che la tariffa includa lo zaino personale piccolo.",
             ]
             if offer["destination_airport"]:
@@ -278,6 +277,7 @@ def main():
             if offer["link"]:
                 parts.append(offer["link"])
             telegram_send(session, telegram_token, telegram_chat, "\n".join(parts))
+            seen.add(offer["key"])
             state["seen_offer_keys"] = sorted(seen)
             save_state(state)
     else:
