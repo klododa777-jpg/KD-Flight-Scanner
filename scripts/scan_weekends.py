@@ -103,15 +103,27 @@ def first_and_third_tuesday(day):
         return False
     return 1 <= day.day <= 7 or 15 <= day.day <= 21
 
+def add_months(day, months):
+    month_index = day.month - 1 + months
+    year = day.year + month_index // 12
+    month = month_index % 12 + 1
+    next_month = date(year + (month == 12), 1 if month == 12 else month + 1, 1)
+    last_day = (next_month - timedelta(days=1)).day
+    return date(year, month, min(day.day, last_day))
+
+def first_saturday_on_or_after(day):
+    return day + timedelta(days=(5 - day.weekday()) % 7)
+
 def weekend_pairs(today):
+    start_anchor = add_months(today, WINDOW_START_MONTHS)
+    end_anchor = add_months(today, WINDOW_END_MONTHS)
+    first_saturday = first_saturday_on_or_after(start_anchor)
+    last_saturday = first_saturday_on_or_after(end_anchor)
     pairs = []
-    current = SCAN_START
-    while current <= SCAN_END:
-        if current.weekday() == 5:
-            sunday = current + timedelta(days=1)
-            if current >= today:
-                pairs.append((current, sunday))
-        current += timedelta(days=1)
+    current = first_saturday
+    while current <= last_saturday:
+        pairs.append((current, current + timedelta(days=1)))
+        current += timedelta(days=7)
     return pairs
 
 def is_visited(destination):
@@ -165,7 +177,7 @@ def main():
 
     pairs = weekend_pairs(today)
     if not pairs:
-        print("Nessun weekend residuo nel periodo gennaio-giugno 2027.")
+        print("Nessun weekend disponibile nella finestra mobile.")
         return 0
 
     state = load_state()
@@ -377,6 +389,8 @@ def main():
     history.append({
         "timestamp_utc": datetime.utcnow().replace(microsecond=0).isoformat() + "Z",
         "weekends_checked": len(pairs),
+        "window_start": pairs[0][0].isoformat(),
+        "window_end": pairs[-1][1].isoformat(),
         "airports": list(AIRPORTS.keys()),
         "api_calls": calls_this_run,
         "eligible_offers": len(offers_found),
@@ -393,6 +407,7 @@ def main():
         "## Weekend Flight Scanner",
         "",
         f"- Data (Europe/Rome): **{today.isoformat()}**",
+        f"- Finestra cercata: **{pairs[0][0].isoformat()} → {pairs[-1][1].isoformat()}**",
         f"- Weekend analizzati: **{len(pairs)}**",
         f"- Aeroporti: **{', '.join(AIRPORTS.keys())}**",
         f"- Chiamate SerpApi in questo run: **{calls_this_run}**",
