@@ -1,0 +1,46 @@
+name: Test SerpApi
+
+on:
+  workflow_dispatch:
+    inputs:
+      departure_id:
+        description: "Aeroporto di partenza (es. VCE)"
+        required: true
+        default: "VCE"
+        type: string
+      outbound_date:
+        description: "Data di andata (YYYY-MM-DD)"
+        required: true
+        default: "2027-01-09"
+        type: string
+      return_date:
+        description: "Data di ritorno (YYYY-MM-DD)"
+        required: true
+        default: "2027-01-10"
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Test SerpApi
+        env:
+          SERPAPI_KEY: ${{ secrets.SERPAPI_KEY }}
+          DEPARTURE_ID: ${{ inputs.departure_id }}
+          OUTBOUND_DATE: ${{ inputs.outbound_date }}
+          RETURN_DATE: ${{ inputs.return_date }}
+        run: python scripts/test_serpapi.py
