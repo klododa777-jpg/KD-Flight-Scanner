@@ -13,7 +13,7 @@ Scanner automatico di offerte voli weekend con notifiche Telegram.
 - Destinazioni già visitate escluse
 - Preferenza per paesi senza visto per passaporto albanese biometrico
 - Telegram: massimo 3 notifiche per destinazione; prima notifica con fino a 3 date più economiche, successive solo per ribassi significativi
-- Frequenza: solo avvio manuale da GitHub Actions → Weekend Flight Scanner → Run workflow
+- Frequenza: automatica il primo e il terzo martedì del mese alle 05:00 UTC; avvio manuale disponibile anche su richiesta
 
 ## Secrets GitHub Actions richiesti
 
@@ -28,7 +28,7 @@ Se i due secret Telegram mancano, lo scanner si ferma prima di effettuare chiama
 ## Consumo API
 
 - 26 weekend × 4 aeroporti = massimo 104 richieste per scansione completa.
-- Le scansioni sono manuali: il consumo dipende da quante volte vengono avviate.
+- Il workflow parte automaticamente ogni martedì alle 05:00 UTC; lo script effettua chiamate soltanto il primo e il terzo martedì del mese. È disponibile anche l'avvio manuale.
 - Il codice impone un tetto di sicurezza di 240 richieste/mese, sotto il limite gratuito dichiarato di 250.
 - Ogni chiamata viene registrata in `data/scanner_state.json` prima di essere eseguita.
 - Nessun retry automatico: errori API o di rete interrompono la scansione per non consumare ulteriori chiamate.
@@ -48,6 +48,6 @@ La lista dei paesi visa-free è intenzionalmente prudente e va mantenuta aggiorn
 
 Dopo aver configurato tutti e tre i secrets, aprire **Actions → Weekend Flight Scanner → Run workflow** per un primo avvio manuale. Il primo avvio effettua la scansione completa dei weekend ancora futuri nel periodo gennaio-giugno 2027.
 
-Il workflow non ha più una pianificazione automatica: parte soltanto quando viene avviato manualmente da GitHub Actions.
+La scansione è automatica il primo e il terzo martedì del mese alle 05:00 UTC. L'avvio manuale resta disponibile da GitHub Actions. L'orario corrisponde alle 06:00 in inverno e alle 07:00 durante l'ora legale italiana.
 
 Non inserire mai chiavi API o token nei file del repository.
