@@ -1,7 +1,7 @@
 import unittest
 from datetime import date
 
-from scripts.scan_weekends import add_months, weekend_pairs
+from scripts.scan_weekends import add_months, is_visited, is_visa_free, weekend_pairs
 
 
 class RollingWeekendWindowTests(unittest.TestCase):
@@ -25,6 +25,29 @@ class RollingWeekendWindowTests(unittest.TestCase):
         for saturday, sunday in pairs:
             self.assertEqual(saturday.weekday(), 5)
             self.assertEqual((sunday - saturday).days, 1)
+
+
+
+class DestinationFilterTests(unittest.TestCase):
+    def test_charleroi_is_excluded_as_brussels_alternative(self):
+        self.assertTrue(is_visited({"name": "Charleroi", "country": "Belgium"}))
+        self.assertTrue(is_visited({
+            "name": "Brussels South",
+            "destination_airport": {"code": "CRL"},
+        }))
+
+    def test_visited_names_are_normalized(self):
+        self.assertTrue(is_visited({"name": "San Sebastián"}))
+        self.assertTrue(is_visited({"name": "Dambach-la-Ville"}))
+
+    def test_eu_schengen_and_visa_free_europe_are_allowed(self):
+        for country in ("Belgium", "Cipro", "Switzerland", "Albania",
+                        "Bosnia and Herzegovina", "Georgia", "Armenia"):
+            with self.subTest(country=country):
+                self.assertTrue(is_visa_free({"country": country}))
+
+    def test_ireland_is_excluded_because_it_requires_a_visa(self):
+        self.assertFalse(is_visa_free({"country": "Ireland"}))
 
 
 if __name__ == '__main__':
