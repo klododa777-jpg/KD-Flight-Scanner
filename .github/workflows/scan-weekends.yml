@@ -1,10 +1,6 @@
 name: Weekend Flight Scanner
 
 on:
-  schedule:
-    # Il controllo Python filtra i primi e terzi martedì; gli altri martedì non consumano API.
-    # 05:00 UTC = 06:00 in inverno / 07:00 in estate (Europe/Rome).
-    - cron: "0 5 * * 2"
   workflow_dispatch:
 
 permissions:
