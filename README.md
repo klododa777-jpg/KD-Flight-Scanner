@@ -6,7 +6,7 @@ Scanner automatico di offerte voli weekend con notifiche Telegram.
 
 - Passeggeri: 1
 - Aeroporti: Venezia Marco Polo (VCE), Treviso (TSF), Milano Malpensa (MXP), Bergamo Orio al Serio (BGY)
-- Periodo: weekend sabato-domenica da gennaio a giugno 2027
+- Periodo: finestra mobile di circa tre mesi, che avanza a ogni scansione
 - Solo voli diretti
 - Prezzo massimo: 60 EUR A/R, tasse incluse
 - Bagaglio richiesto: solo zaino personale piccolo
@@ -27,7 +27,7 @@ Se i due secret Telegram mancano, lo scanner si ferma prima di effettuare chiama
 
 ## Consumo API
 
-- 26 weekend × 4 aeroporti = massimo 104 richieste per scansione completa.
+- Circa 14 weekend × 4 aeroporti = circa 56 richieste per scansione.
 - Il workflow parte automaticamente ogni martedì alle 05:00 UTC; lo script effettua chiamate soltanto il primo e il terzo martedì del mese. È disponibile anche l'avvio manuale.
 - Il codice impone un tetto di sicurezza di 240 richieste/mese, sotto il limite gratuito dichiarato di 250.
 - Ogni chiamata viene registrata in `data/scanner_state.json` prima di essere eseguita.
@@ -46,8 +46,8 @@ La lista dei paesi visa-free è intenzionalmente prudente e va mantenuta aggiorn
 
 ## Avvio
 
-Dopo aver configurato tutti e tre i secrets, aprire **Actions → Weekend Flight Scanner → Run workflow** per un primo avvio manuale. Il primo avvio effettua la scansione completa dei weekend ancora futuri nel periodo gennaio-giugno 2027.
+Dopo aver configurato tutti e tre i secrets, aprire **Actions → Weekend Flight Scanner → Run workflow** per un primo avvio manuale. Il primo avvio cerca i weekend nella finestra mobile: dal primo sabato a partire da un mese dopo la scansione fino al primo sabato a partire da quattro mesi dopo.
 
-La scansione è automatica il primo e il terzo martedì del mese alle 05:00 UTC. L'avvio manuale resta disponibile da GitHub Actions. L'orario corrisponde alle 06:00 in inverno e alle 07:00 durante l'ora legale italiana.
+La scansione è automatica il primo e il terzo martedì del mese alle 05:00 UTC. A ogni esecuzione la finestra avanza: parte dal primo weekend a partire da un mese dopo la data di scansione e arriva al primo weekend a partire da quattro mesi dopo. L'avvio manuale resta disponibile. L'orario corrisponde alle 06:00 in inverno e alle 07:00 durante l'ora legale italiana.
 
 Non inserire mai chiavi API o token nei file del repository.
