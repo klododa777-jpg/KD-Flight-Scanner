@@ -342,7 +342,7 @@ def main():
             "Volo diretto. Verificare che la tariffa includa lo zaino personale piccolo.",
         ])
 
-        telegram_send(session, telegram_token, telegram_chat, "\\n".join(parts))
+        telegram_send(session, telegram_token, telegram_chat, "\n".join(parts))
         for offer in selected:
             seen.add(offer["key"])
         alerts[destination_key] = alert_state
@@ -390,10 +390,10 @@ def main():
     if summary_path:
         try:
             with open(summary_path, "a", encoding="utf-8") as summary_file:
-                summary_file.write("\\n".join(summary) + "\\n")
+                summary_file.write("\n".join(summary) + "\n")
         except OSError:
             print("AVVISO: impossibile scrivere il riepilogo GitHub Actions.")
-    print("\\n".join(summary))
+    print("\n".join(summary))
     print(f"Prezzo 'ottimo' evidenziato fino a: {GREAT_PRICE_EUR} EUR A/R")
     return 0
 
