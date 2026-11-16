@@ -404,7 +404,7 @@ def main():
                 parts.append(offer["link"])
         parts.extend([
             "",
-            "Volo diretto. Verificare che la tariffa includa lo zaino personale piccolo.",
+            "Volo diretto. Prezzo indicativo: il bagaglio non è filtrato; controllare il costo finale prima dell'acquisto.",
         ])
 
         telegram_send(session, telegram_token, telegram_chat, "\n".join(parts))
