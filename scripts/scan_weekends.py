@@ -77,7 +77,7 @@ def normalized(value):
 def load_state():
     STATE_PATH.parent.mkdir(parents=True, exist_ok=True)
     if not STATE_PATH.exists():
-        return {"api_usage": {}, "seen_offer_keys": [], "destination_alerts": {}, "scan_history": []}
+        return {"api_usage": {}, "seen_offer_keys": [], "destination_alerts": {}, "destination_price_history": {}, "scan_history": []}
     try:
         state = json.loads(STATE_PATH.read_text(encoding="utf-8"))
         if not isinstance(state, dict):
@@ -85,6 +85,7 @@ def load_state():
         state.setdefault("api_usage", {})
         state.setdefault("seen_offer_keys", [])
         state.setdefault("destination_alerts", {})
+        state.setdefault("destination_price_history", {})
         state.setdefault("scan_history", [])
         return state
     except (OSError, ValueError, json.JSONDecodeError):
@@ -276,6 +277,20 @@ def main():
         grouped.setdefault(destination_key, []).append(offer)
 
     alerts = state.setdefault("destination_alerts", {})
+    price_history = state.setdefault("destination_price_history", {})
+    scan_date = today.isoformat()
+    for destination_key, offers in grouped.items():
+        cheapest = offers[0]
+        records = price_history.setdefault(destination_key, [])
+        records.append({
+            "scan_date": scan_date,
+            "price": cheapest["price"],
+            "airport": cheapest["airport"],
+            "outbound": cheapest["outbound"],
+            "return": cheapest["return"],
+        })
+        price_history[destination_key] = records[-SCAN_HISTORY_LIMIT:]
+
     sent_destinations = 0
     sent_offers = 0
     messages_sent = 0
@@ -292,7 +307,7 @@ def main():
                 selected = unseen[:MAX_OFFERS_PER_DESTINATION]
                 alert_state = {
                     "alerts_sent": 1,
-                    "best_alerted_price": min(item["price"] for item in selected),
+                    "best_alerted_price": offers[0]["price"],
                 }
             else:
                 alert_state = {
@@ -355,6 +370,7 @@ def main():
 
     state["seen_offer_keys"] = sorted(seen)
     state["destination_alerts"] = alerts
+    state["destination_price_history"] = price_history
     history = state.setdefault("scan_history", [])
     history.append({
         "timestamp_utc": datetime.utcnow().replace(microsecond=0).isoformat() + "Z",
@@ -385,6 +401,11 @@ def main():
         f"- Consumo mensile: **{used}/{MONTHLY_CALL_CAP}**",
         f"- Regole: massimo **{MAX_PRICE_EUR} EUR A/R**, voli diretti, massimo **{MAX_OFFERS_PER_DESTINATION} avvisi per destinazione**.",
         "",
+        "### Prezzi minimi rilevati in questa scansione",
+    ])
+    for offer in sorted(offers_found, key=lambda item: item["price"])[:10]:
+        summary.append(f"- **{offer['destination']}** — {offer['price']} EUR A/R · {offer['airport']} · {offer['outbound']} → {offer['return']}")
+    summary.append("")
     ]
     summary_path = os.environ.get("GITHUB_STEP_SUMMARY")
     if summary_path:
