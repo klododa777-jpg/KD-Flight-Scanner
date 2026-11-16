@@ -52,8 +52,17 @@ def main():
     if metadata.get("id"):
         print(f"Search ID: {metadata['id']}")
 
-    if response.status_code != 200 or data.get("error"):
-        print(f"ERRORE API: {data.get('error', 'Errore API senza descrizione')}")
+    if response.status_code != 200:
+        print(f"ERRORE HTTP: {data.get('error', 'Errore API senza descrizione')}")
+        return 1
+
+    api_error = data.get("error")
+    if api_error:
+        if "Empty results for departure_id" in api_error:
+            print(f"NESSUN DATO RESTITUITO DA GOOGLE TRAVEL PER {departure_id}.")
+            print("Non è un errore di autenticazione o di esecuzione dello script; la fonte non ha fornito destinazioni per questa ricerca.")
+            return 0
+        print(f"ERRORE API: {api_error}")
         print("Chiavi risposta:", ", ".join(sorted(data.keys())))
         return 1
 
