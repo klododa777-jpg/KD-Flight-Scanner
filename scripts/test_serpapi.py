@@ -3,6 +3,8 @@ import sys
 import requests
 
 API_URL = "https://serpapi.com/search.json"
+DEFAULT_DEPARTURES = "VCE,TSF,MXP,BGY"
+
 
 def main():
     api_key = os.environ.get("SERPAPI_KEY")
@@ -10,7 +12,7 @@ def main():
         print("ERRORE: secret SERPAPI_KEY non configurato.")
         return 2
 
-    departure_id = os.environ.get("DEPARTURE_ID", "VCE")
+    departure_id = os.environ.get("DEPARTURE_ID", DEFAULT_DEPARTURES)
     outbound_date = os.environ.get("OUTBOUND_DATE", "2027-01-09")
     return_date = os.environ.get("RETURN_DATE", "2027-01-10")
 
@@ -21,6 +23,7 @@ def main():
         "return_date": return_date,
         "currency": "EUR",
         "hl": "it",
+        "gl": "it",
         "api_key": api_key,
     }
 
@@ -39,27 +42,49 @@ def main():
         print(response.text[:1000])
         return 1
 
-    if response.status_code != 200:
-        error = data.get("error", "Errore API senza descrizione")
-        print(f"ERRORE API: {error}")
-        return 1
-
-    if data.get("error"):
-        print(f"ERRORE API: {data['error']}")
+    if response.status_code != 200 or data.get("error"):
+        print(f"ERRORE API: {data.get('error', 'Errore API senza descrizione')}")
         return 1
 
     destinations = data.get("destinations") or []
     print(f"Destinazioni restituite: {len(destinations)}")
-    for item in destinations[:10]:
+
+    direct_under_100 = []
+    for item in destinations:
+        price = item.get("flight_price")
+        stops = item.get("number_of_stops")
+        if isinstance(price, (int, float)) and price <= 100 and stops == 0:
+            direct_under_100.append(item)
+
+    print(f"Risultati con prezzo <= 100 EUR e 0 scali: {len(direct_under_100)}")
+    print("Prime 15 destinazioni restituite:")
+    for item in destinations[:15]:
         name = item.get("name") or item.get("destination") or "Destinazione non specificata"
-        price = item.get("flight_price", item.get("price", "prezzo non indicato"))
-        stops = item.get("number_of_stops", "scali non indicati")
-        print(f"- {name} | prezzo: {price} | scali: {stops}")
+        airport = (item.get("destination_airport") or {}).get("code", "N/D")
+        price = item.get("flight_price", "N/D")
+        stops = item.get("number_of_stops", "N/D")
+        airline = item.get("airline", "N/D")
+        start = item.get("start_date", "N/D")
+        end = item.get("end_date", "N/D")
+        link_present = bool(item.get("link") or item.get("serpapi_link"))
+        print(
+            f"- {name} ({airport}) | {price} EUR | scali: {stops} "
+            f"| {airline} | {start} -> {end} | link: {'sì' if link_present else 'no'}"
+        )
+
+    if direct_under_100:
+        print("Esempi sotto soglia:")
+        for item in direct_under_100[:10]:
+            name = item.get("name", "Destinazione non specificata")
+            airport = (item.get("destination_airport") or {}).get("code", "N/D")
+            print(f"- {name} ({airport}): {item.get('flight_price')} EUR, {item.get('number_of_stops')} scali")
 
     if not destinations:
         print("La richiesta è stata accettata, ma non sono state restituite destinazioni.")
         print("Campi principali della risposta:", ", ".join(sorted(data.keys())))
+
     return 0
+
 
 if __name__ == "__main__":
     sys.exit(main())
