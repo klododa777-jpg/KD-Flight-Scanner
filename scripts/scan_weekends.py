@@ -94,6 +94,9 @@ def normalized(value):
     )
     return " ".join(re.sub(r"[^a-z0-9]+", " ", text).split())
 
+# Normalizza anche l'elenco statico: gestisce accenti, punti e trattini.
+VISITED = {normalized(value) for value in VISITED}
+
 def load_state():
     STATE_PATH.parent.mkdir(parents=True, exist_ok=True)
     if not STATE_PATH.exists():
