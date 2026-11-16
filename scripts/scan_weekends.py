@@ -53,28 +53,46 @@ VISITED = {
     "padova", "bruges", "brugge", "ghent", "gand", "antwerp", "anversa",
     "bilbao", "san sebastian", "san sebastián", "malaga", "malaga",
     "granada", "palma de mallorca", "la spezia", "cannes",
+    # Charleroi è spesso usata come aeroporto alternativo per Bruxelles.
+    "charleroi", "brussels south charleroi", "brussels south", "bruxelles sud",
 }
 
-# Paesi con accesso senza visto per soggiorni brevi per titolari di passaporto
-# albanese biometrico; lista volutamente prudente e limitata all'Europa.
+# Destinazioni europee ammesse per un titolare di passaporto albanese
+# biometrico: area Schengen, paesi UE accessibili senza visto e altri paesi
+# europei con regime visa-free. Irlanda esclusa: per i cittadini albanesi
+# richiede un visto; il solo fatto di appartenere all'UE non basta.
 VISA_FREE_COUNTRIES = {
-    "albania", "andorra", "austria", "belgium", "belgio", "bosnia and herzegovina",
-    "bosnia ed erzegovina", "bulgaria", "croatia", "croazia", "cyprus", "cipro",
-    "czechia", "czech republic", "repubblica ceca", "denmark", "danimarca",
-    "estonia", "finland", "finlandia", "france", "francia", "georgia",
-    "germany", "germania", "greece", "grecia", "hungary", "ungheria",
-    "iceland", "islanda", "italy", "italia", "kosovo", "latvia", "lettonia",
-    "liechtenstein", "lithuania", "lituania", "luxembourg", "lussemburgo",
-    "malta", "moldova", "monaco", "montenegro", "netherlands", "paesi bassi",
-    "north macedonia", "macedonia del nord", "norway", "norvegia", "poland",
-    "polonia", "portugal", "portogallo", "romania", "san marino", "serbia",
-    "slovakia", "slovacchia", "slovenia", "spain", "spagna", "sweden",
-    "svezia", "switzerland", "svizzera", "turkey", "turchia", "ukraine",
-    "ucraina", "vatican city", "città del vaticano",
+    # UE + area Schengen (incluse Bulgaria e Romania)
+    "austria", "belgium", "belgio", "bulgaria", "croatia", "croazia",
+    "cyprus", "cipro", "czechia", "czech republic", "repubblica ceca",
+    "denmark", "danimarca", "estonia", "finland", "finlandia",
+    "france", "francia", "germany", "germania", "greece", "grecia",
+    "hungary", "ungheria", "italy", "italia", "latvia", "lettonia",
+    "lithuania", "lituania", "luxembourg", "lussemburgo", "malta",
+    "netherlands", "the netherlands", "paesi bassi", "poland", "polonia",
+    "portugal", "portogallo", "romania", "slovakia", "slovacchia",
+    "slovenia", "spain", "spagna", "sweden", "svezia",
+    # Stati Schengen non UE
+    "iceland", "islanda", "liechtenstein", "norway", "norvegia",
+    "switzerland", "svizzera",
+    # Altri paesi europei accessibili senza visto con passaporto albanese
+    "albania", "andorra", "armenia", "bosnia and herzegovina",
+    "bosnia ed erzegovina", "georgia", "kosovo", "moldova",
+    "monaco", "montenegro", "north macedonia", "macedonia del nord",
+    "san marino", "serbia", "turkey", "turchia", "ukraine", "ucraina",
+    "vatican city", "città del vaticano", "citta del vaticano",
 }
 
 def normalized(value):
-    return " ".join(str(value or "").strip().casefold().replace("’", "'").split())
+    import re
+    import unicodedata
+
+    text = str(value or "").strip().casefold().replace("’", "'")
+    text = "".join(
+        char for char in unicodedata.normalize("NFKD", text)
+        if not unicodedata.combining(char)
+    )
+    return " ".join(re.sub(r"[^a-z0-9]+", " ", text).split())
 
 def load_state():
     STATE_PATH.parent.mkdir(parents=True, exist_ok=True)
@@ -128,11 +146,24 @@ def weekend_pairs(today):
         current += timedelta(days=7)
     return pairs
 
+# Codici aeroportuali che identificano destinazioni già visitate o loro
+# aeroporti alternativi. In particolare CRL = Brussels South Charleroi.
+VISITED_AIRPORT_CODES = {"CRL"}
+
 def is_visited(destination):
-    name = normalized(destination.get("name"))
-    aliases = {name}
-    aliases.add(normalized(destination.get("destination")))
-    return bool(aliases & VISITED)
+    airport = destination.get("destination_airport") or {}
+    candidates = {
+        normalized(destination.get("name")),
+        normalized(destination.get("destination")),
+        normalized(airport.get("name")),
+        normalized(airport.get("city")),
+        normalized(airport.get("code")),
+    }
+    candidates.discard("")
+    return bool(
+        candidates & VISITED
+        or normalized(airport.get("code")).upper() in VISITED_AIRPORT_CODES
+    )
 
 def is_visa_free(destination):
     country = normalized(destination.get("country"))
