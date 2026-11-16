@@ -18,7 +18,8 @@ AIRPORTS = {
     "MXP": "Milano Malpensa",
     "BGY": "Bergamo Orio al Serio",
 }
-MAX_PRICE_EUR = 100
+MAX_PRICE_EUR = 60
+MAX_OFFERS_PER_DESTINATION = 3
 MONTHLY_CALL_CAP = 240  # lascia margine rispetto alle 250 ricerche del piano gratuito
 SCAN_START = date(2027, 1, 1)
 SCAN_END = date(2027, 6, 30)
@@ -80,6 +81,7 @@ def load_state():
             raise ValueError("Formato stato non valido")
         state.setdefault("api_usage", {})
         state.setdefault("seen_offer_keys", [])
+        state.setdefault("destination_notified_counts", {})
         return state
     except (OSError, ValueError, json.JSONDecodeError):
         print("ERRORE: file data/scanner_state.json illeggibile; interruzione per sicurezza.")
@@ -261,31 +263,67 @@ def main():
         if used >= MONTHLY_CALL_CAP:
             break
 
-    if new_offers:
-        for offer in new_offers:
-            parts = [
-                "✈️ NUOVA OFFERTA WEEKEND",
-                f"{offer['destination']}, {offer['country']}",
-                f"Partenza: {offer['outbound']} da {offer['airport']} ({offer['airport_name']})",
-                f"Ritorno: {offer['return']}",
-                f"Prezzo indicato A/R: {offer['price']} EUR",
-                f"Volo diretto · {offer['airline']}",
-                "Bagaglio: verificare che la tariffa includa lo zaino personale piccolo.",
-            ]
+    # Raggruppa per destinazione e seleziona al massimo le 3 tariffe più basse.
+    # Il contatore persistente impedisce di ricevere nuove settimane all'infinito
+    # per una destinazione già notificata 3 volte.
+    grouped = {}
+    for offer in new_offers:
+        destination_key = normalized(offer["destination"])
+        grouped.setdefault(destination_key, []).append(offer)
+
+    notified_counts = state.setdefault("destination_notified_counts", {})
+    sent_destinations = 0
+    sent_offers = 0
+
+    for destination_key, offers in grouped.items():
+        already_notified = int(notified_counts.get(destination_key, 0))
+        remaining = max(0, MAX_OFFERS_PER_DESTINATION - already_notified)
+        if remaining == 0:
+            continue
+
+        offers.sort(key=lambda item: (item["price"], item["outbound"], item["airport"]))
+        selected = offers[:remaining]
+        if not selected:
+            continue
+
+        first = selected[0]
+        parts = [
+            "✈️ MIGLIORI OFFERTE WEEKEND",
+            f"{first['destination']}, {first['country']}",
+            f"Le {len(selected)} tariffe A/R più basse trovate (massimo {MAX_OFFERS_PER_DESTINATION} notifiche per destinazione):",
+        ]
+        for index, offer in enumerate(selected, start=1):
+            parts.extend([
+                "",
+                f"{index}) {offer['price']} EUR A/R — {offer['outbound']} → {offer['return']}",
+                f"Partenza da {offer['airport']} ({offer['airport_name']}) · {offer['airline']}",
+            ])
             if offer["destination_airport"]:
-                parts.insert(2, f"Aeroporto arrivo: {html.escape(offer['destination_airport'])}")
+                parts.append(f"Aeroporto arrivo: {offer['destination_airport']}")
             if offer["link"]:
                 parts.append(offer["link"])
-            telegram_send(session, telegram_token, telegram_chat, "\n".join(parts))
+        parts.append("")
+        parts.append("Volo diretto. Verificare che la tariffa includa lo zaino personale piccolo.")
+
+        telegram_send(session, telegram_token, telegram_chat, "\n".join(parts))
+        for offer in selected:
             seen.add(offer["key"])
-            state["seen_offer_keys"] = sorted(seen)
-            save_state(state)
-    else:
+        notified_counts[destination_key] = already_notified + len(selected)
+        sent_destinations += 1
+        sent_offers += len(selected)
         state["seen_offer_keys"] = sorted(seen)
+        state["destination_notified_counts"] = notified_counts
+        save_state(state)
+
+    if not new_offers or sent_offers == 0:
+        state["seen_offer_keys"] = sorted(seen)
+        state["destination_notified_counts"] = notified_counts
         save_state(state)
 
     print(f"Chiamate effettuate: {calls_this_run}")
-    print(f"Nuove offerte inviate su Telegram: {len(new_offers)}")
+    print(f"Destinazioni notificate in questo run: {sent_destinations}")
+    print(f"Offerte inviate su Telegram: {sent_offers}")
+    print(f"Limite per destinazione: {MAX_OFFERS_PER_DESTINATION} offerte complessive")
     print(f"Consumo mensile registrato: {used}/{MONTHLY_CALL_CAP}")
     return 0
 
