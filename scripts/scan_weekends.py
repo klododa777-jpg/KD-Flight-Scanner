@@ -1,5 +1,4 @@
 import hashlib
-import html
 import json
 import os
 import sys
@@ -20,6 +19,10 @@ AIRPORTS = {
 }
 MAX_PRICE_EUR = 60
 MAX_OFFERS_PER_DESTINATION = 3
+GREAT_PRICE_EUR = 45
+PRICE_DROP_MIN_PERCENT = 15
+PRICE_DROP_MIN_EUR = 5
+SCAN_HISTORY_LIMIT = 24
 MONTHLY_CALL_CAP = 240  # lascia margine rispetto alle 250 ricerche del piano gratuito
 SCAN_START = date(2027, 1, 1)
 SCAN_END = date(2027, 6, 30)
@@ -74,14 +77,15 @@ def normalized(value):
 def load_state():
     STATE_PATH.parent.mkdir(parents=True, exist_ok=True)
     if not STATE_PATH.exists():
-        return {"api_usage": {}, "seen_offer_keys": []}
+        return {"api_usage": {}, "seen_offer_keys": [], "destination_alerts": {}, "scan_history": []}
     try:
         state = json.loads(STATE_PATH.read_text(encoding="utf-8"))
         if not isinstance(state, dict):
             raise ValueError("Formato stato non valido")
         state.setdefault("api_usage", {})
         state.setdefault("seen_offer_keys", [])
-        state.setdefault("destination_notified_counts", {})
+        state.setdefault("destination_alerts", {})
+        state.setdefault("scan_history", [])
         return state
     except (OSError, ValueError, json.JSONDecodeError):
         print("ERRORE: file data/scanner_state.json illeggibile; interruzione per sicurezza.")
@@ -168,7 +172,7 @@ def main():
     used = int(state["api_usage"].get(month_key, 0))
     seen = set(state["seen_offer_keys"])
     session = requests.Session()
-    new_offers = []
+    offers_found = []
     calls_this_run = 0
 
     print(f"Weekend da controllare: {len(pairs)} | aeroporti: {', '.join(AIRPORTS)}")
@@ -236,15 +240,12 @@ def main():
                     continue
 
                 key = offer_key(airport, item, outbound, returning)
-                if key in seen:
-                    continue
-
                 destination_name = item.get("name") or "Destinazione non specificata"
                 country = item.get("country") or "Paese non specificato"
                 destination_airport = (item.get("destination_airport") or {}).get("code", "")
                 airline = item.get("airline") or "Compagnia non indicata"
                 link = item.get("link") or item.get("serpapi_link") or data.get("google_flights_link") or ""
-                new_offers.append({
+                offers_found.append({
                     "key": key,
                     "airport": airport,
                     "airport_name": airport_name,
@@ -263,68 +264,137 @@ def main():
         if used >= MONTHLY_CALL_CAP:
             break
 
-    # Raggruppa per destinazione e seleziona al massimo le 3 tariffe più basse.
-    # Il contatore persistente impedisce di ricevere nuove settimane all'infinito
-    # per una destinazione già notificata 3 volte.
+    # Raggruppa tutte le offerte raccolte per destinazione. Le offerte già viste
+    # restano disponibili per il confronto prezzi, ma non vengono rinotificate.
     grouped = {}
-    for offer in new_offers:
+    unique_offers = {}
+    for offer in offers_found:
+        unique_offers[offer["key"]] = offer
+    offers_found = list(unique_offers.values())
+    for offer in offers_found:
         destination_key = normalized(offer["destination"])
         grouped.setdefault(destination_key, []).append(offer)
 
-    notified_counts = state.setdefault("destination_notified_counts", {})
+    alerts = state.setdefault("destination_alerts", {})
     sent_destinations = 0
     sent_offers = 0
+    messages_sent = 0
 
     for destination_key, offers in grouped.items():
-        already_notified = int(notified_counts.get(destination_key, 0))
-        remaining = max(0, MAX_OFFERS_PER_DESTINATION - already_notified)
-        if remaining == 0:
-            continue
-
         offers.sort(key=lambda item: (item["price"], item["outbound"], item["airport"]))
-        selected = offers[:remaining]
+        alert_state = alerts.get(destination_key)
+        unseen = [offer for offer in offers if offer["key"] not in seen]
+
+        if alert_state is None:
+            # Migrazione sicura: le offerte viste dal vecchio scanner non vengono
+            # inviate di nuovo. Si memorizza il prezzo corrente come riferimento.
+            if unseen:
+                selected = unseen[:MAX_OFFERS_PER_DESTINATION]
+                alert_state = {
+                    "alerts_sent": 1,
+                    "best_alerted_price": min(item["price"] for item in selected),
+                }
+            else:
+                alert_state = {
+                    "alerts_sent": 0,
+                    "best_alerted_price": offers[0]["price"],
+                }
+                alerts[destination_key] = alert_state
+                continue
+        else:
+            alerts_sent = int(alert_state.get("alerts_sent", 0))
+            best_alerted_price = float(alert_state.get("best_alerted_price", offers[0]["price"]))
+            cheapest = offers[0]
+            required_drop = max(PRICE_DROP_MIN_EUR, best_alerted_price * PRICE_DROP_MIN_PERCENT / 100)
+            if alerts_sent >= MAX_OFFERS_PER_DESTINATION or cheapest["price"] > best_alerted_price - required_drop:
+                # Mantiene il riferimento al prezzo migliore già notificato:
+                # piccoli movimenti non generano notifiche ripetitive.
+                alerts[destination_key] = alert_state
+                continue
+            selected = [cheapest]
+            alert_state = {
+                "alerts_sent": alerts_sent + 1,
+                "best_alerted_price": cheapest["price"],
+            }
+
         if not selected:
             continue
 
-        first = selected[0]
+        title = "🔥 OTTIMO PREZZO" if min(item["price"] for item in selected) <= GREAT_PRICE_EUR else "✈️ MIGLIORI OFFERTE WEEKEND"
         parts = [
-            "✈️ MIGLIORI OFFERTE WEEKEND",
-            f"{first['destination']}, {first['country']}",
-            f"Le {len(selected)} tariffe A/R più basse trovate (massimo {MAX_OFFERS_PER_DESTINATION} notifiche per destinazione):",
+            title,
+            f"{selected[0]['destination']}, {selected[0]['country']}",
+            f"Massimo {MAX_OFFERS_PER_DESTINATION} notifiche per destinazione; soglia {MAX_PRICE_EUR} EUR A/R.",
         ]
         for index, offer in enumerate(selected, start=1):
+            price_label = " · OTTIMO PREZZO" if offer["price"] <= GREAT_PRICE_EUR else ""
             parts.extend([
                 "",
-                f"{index}) {offer['price']} EUR A/R — {offer['outbound']} → {offer['return']}",
+                f"{index}) {offer['price']} EUR A/R{price_label} — {offer['outbound']} → {offer['return']}",
                 f"Partenza da {offer['airport']} ({offer['airport_name']}) · {offer['airline']}",
             ])
             if offer["destination_airport"]:
                 parts.append(f"Aeroporto arrivo: {offer['destination_airport']}")
             if offer["link"]:
                 parts.append(offer["link"])
-        parts.append("")
-        parts.append("Volo diretto. Verificare che la tariffa includa lo zaino personale piccolo.")
+        parts.extend([
+            "",
+            "Volo diretto. Verificare che la tariffa includa lo zaino personale piccolo.",
+        ])
 
-        telegram_send(session, telegram_token, telegram_chat, "\n".join(parts))
+        telegram_send(session, telegram_token, telegram_chat, "\\n".join(parts))
         for offer in selected:
             seen.add(offer["key"])
-        notified_counts[destination_key] = already_notified + len(selected)
+        alerts[destination_key] = alert_state
         sent_destinations += 1
         sent_offers += len(selected)
+        messages_sent += 1
         state["seen_offer_keys"] = sorted(seen)
-        state["destination_notified_counts"] = notified_counts
+        state["destination_alerts"] = alerts
         save_state(state)
 
-    if not new_offers or sent_offers == 0:
-        state["seen_offer_keys"] = sorted(seen)
-        state["destination_notified_counts"] = notified_counts
-        save_state(state)
+    state["seen_offer_keys"] = sorted(seen)
+    state["destination_alerts"] = alerts
+    history = state.setdefault("scan_history", [])
+    history.append({
+        "timestamp_utc": datetime.utcnow().replace(microsecond=0).isoformat() + "Z",
+        "weekends_checked": len(pairs),
+        "airports": list(AIRPORTS.keys()),
+        "api_calls": calls_this_run,
+        "eligible_offers": len(offers_found),
+        "destinations_found": len(grouped),
+        "telegram_messages": messages_sent,
+        "offers_notified": sent_offers,
+        "api_usage_month": used,
+        "api_monthly_cap": MONTHLY_CALL_CAP,
+    })
+    state["scan_history"] = history[-SCAN_HISTORY_LIMIT:]
+    save_state(state)
 
-    print(f"Chiamate effettuate: {calls_this_run}")
-    print(f"Destinazioni notificate in questo run: {sent_destinations}")
-    print(f"Offerte inviate su Telegram: {sent_offers}")
-    print(f"Limite per destinazione: {MAX_OFFERS_PER_DESTINATION} offerte complessive")
-    print(f"Consumo mensile registrato: {used}/{MONTHLY_CALL_CAP}")
+    summary = [
+        "## Weekend Flight Scanner",
+        "",
+        f"- Data (Europe/Rome): **{today.isoformat()}**",
+        f"- Weekend analizzati: **{len(pairs)}**",
+        f"- Aeroporti: **{', '.join(AIRPORTS.keys())}**",
+        f"- Chiamate SerpApi in questo run: **{calls_this_run}**",
+        f"- Offerte idonee raccolte: **{len(offers_found)}**",
+        f"- Destinazioni trovate: **{len(grouped)}**",
+        f"- Messaggi Telegram inviati: **{messages_sent}**",
+        f"- Offerte notificate: **{sent_offers}**",
+        f"- Consumo mensile: **{used}/{MONTHLY_CALL_CAP}**",
+        f"- Regole: massimo **{MAX_PRICE_EUR} EUR A/R**, voli diretti, massimo **{MAX_OFFERS_PER_DESTINATION} avvisi per destinazione**.",
+        "",
+    ]
+    summary_path = os.environ.get("GITHUB_STEP_SUMMARY")
+    if summary_path:
+        try:
+            with open(summary_path, "a", encoding="utf-8") as summary_file:
+                summary_file.write("\\n".join(summary) + "\\n")
+        except OSError:
+            print("AVVISO: impossibile scrivere il riepilogo GitHub Actions.")
+    print("\\n".join(summary))
+    print(f"Prezzo 'ottimo' evidenziato fino a: {GREAT_PRICE_EUR} EUR A/R")
     return 0
 
 if __name__ == "__main__":
