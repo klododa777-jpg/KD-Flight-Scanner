@@ -4,9 +4,9 @@ on:
   workflow_dispatch:
     inputs:
       departure_id:
-        description: "Aeroporto di partenza (es. VCE)"
+        description: "Aeroporti di partenza separati da virgola"
         required: true
-        default: "VCE"
+        default: "VCE,TSF,MXP,BGY"
         type: string
       outbound_date:
         description: "Data di andata (YYYY-MM-DD)"
