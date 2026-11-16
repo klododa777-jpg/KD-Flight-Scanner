@@ -28,6 +28,9 @@ jobs:
       - name: Install dependencies
         run: pip install -r requirements.txt
 
+      - name: Validate scanner syntax
+        run: python -m py_compile scripts/scan_weekends.py
+
       - name: Scan weekend flights
         env:
           SERPAPI_KEY: ${{ secrets.SERPAPI_KEY }}
