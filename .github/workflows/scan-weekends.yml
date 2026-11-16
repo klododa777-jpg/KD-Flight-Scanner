@@ -1,0 +1,54 @@
+name: Weekend Flight Scanner
+
+on:
+  schedule:
+    # Il controllo Python filtra i primi e terzi martedì; gli altri martedì non consumano API.
+    # 05:00 UTC = 06:00 in inverno / 07:00 in estate (Europe/Rome).
+    - cron: "0 5 * * 2"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: weekend-flight-scanner
+  cancel-in-progress: false
+
+jobs:
+  scan:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Scan weekend flights
+        env:
+          SERPAPI_KEY: ${{ secrets.SERPAPI_KEY }}
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          GITHUB_EVENT_NAME: ${{ github.event_name }}
+        run: python scripts/scan_weekends.py
+
+      - name: Save scan state and API usage
+        if: always()
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add data/scanner_state.json
+          if git diff --cached --quiet; then
+            echo "Nessuno stato da salvare."
+          else
+            git commit -m "chore: update flight scanner state"
+            git push
+          fi
