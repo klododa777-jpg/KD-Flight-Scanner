@@ -2,50 +2,52 @@
 
 Scanner automatico di offerte voli weekend con notifiche Telegram.
 
-## Configurazione confermata
+## Configurazione
 
 - Passeggeri: 1
-- Aeroporti di partenza: Venezia Marco Polo (VCE), Treviso (TSF), Milano Malpensa (MXP), Bergamo Orio al Serio (BGY)
-- Periodo da monitorare: weekend sabato-domenica da gennaio a giugno 2027
+- Aeroporti: Venezia Marco Polo (VCE), Treviso (TSF), Milano Malpensa (MXP), Bergamo Orio al Serio (BGY)
+- Periodo: weekend sabato-domenica da gennaio a giugno 2027
 - Solo voli diretti
-- Prezzo massimo: 100 EUR andata e ritorno, tasse incluse
-- Bagaglio: solo piccolo zaino personale
-- Orari: liberi, purché andata sabato e ritorno domenica
-- Destinazioni: escludere quelle già visitate e quelle per cui il passaporto albanese richiede un visto non posseduto
-- Notifiche Telegram: soltanto nuove offerte, con deduplicazione
-- Frequenza scansione prevista: due martedì al mese, primo e terzo martedì
+- Prezzo massimo: 100 EUR A/R, tasse incluse
+- Bagaglio richiesto: solo zaino personale piccolo
+- Destinazioni già visitate escluse
+- Preferenza per paesi senza visto per passaporto albanese biometrico
+- Telegram: solo nuove offerte, deduplicate
+- Frequenza: primo e terzo martedì del mese
 
-## Budget SerpApi
+## Secrets GitHub Actions richiesti
 
-Il test ha dimostrato che gli aeroporti devono essere interrogati separatamente: una richiesta con più codici aeroporto restituisce risultati vuoti.
+Configurare in **Settings → Secrets and variables → Actions**:
 
-- 26 weekend da controllare
-- 4 aeroporti per weekend
-- 104 richieste per scansione completa
-- 2 scansioni al mese: circa 208 richieste mensili
-- Limite piano gratuito: 250 richieste mensili
-- Margine previsto: circa 42 richieste al mese
+- `SERPAPI_KEY` (già configurato)
+- `TELEGRAM_BOT_TOKEN`
+- `TELEGRAM_CHAT_ID`
 
-La stima presuppone una richiesta per ogni combinazione aeroporto/weekend e nessun retry. Il codice dovrà evitare chiamate aggiuntive non necessarie e interrompersi in caso di errori ripetuti, così da proteggere il budget mensile.
+Se i due secret Telegram mancano, lo scanner si ferma prima di effettuare chiamate SerpApi.
 
-## API
+## Consumo API
 
-Il test usa SerpApi Google Travel Explore. Ogni aeroporto viene interrogato con una richiesta separata. La modalità round trip viene impostata esplicitamente.
+- 26 weekend × 4 aeroporti = massimo 104 richieste per scansione completa.
+- Due scansioni mensili = circa 208 richieste.
+- Il codice impone un tetto di sicurezza di 240 richieste/mese, sotto il limite gratuito dichiarato di 250.
+- Ogni chiamata viene registrata in `data/scanner_state.json` prima di essere eseguita.
+- Nessun retry automatico: errori API o di rete interrompono la scansione per non consumare ulteriori chiamate.
+- Gli aeroporti senza risultati vengono saltati; non sono trattati come errori di autenticazione.
 
-## Stato del progetto
+## Filtri e limiti dei dati
 
-- [x] Secret GitHub Actions `SERPAPI_KEY` configurato
-- [x] Prima chiamata API riuscita con VCE
-- [x] Test aggiornato per interrogare separatamente VCE, TSF, MXP e BGY
-- [ ] Verificare il nuovo test con i quattro aeroporti
-- [ ] Verificare prezzo A/R, date, scali e dati di destinazione
-- [ ] Implementare scansione dei 26 weekend con controllo del budget API
-- [ ] Implementare filtri, esclusioni e deduplicazione
-- [ ] Configurare Telegram
-- [ ] Attivare scansione il primo e terzo martedì del mese, dopo i test
+Lo scanner seleziona risultati con prezzo non superiore a 100 EUR, zero scali, date esatte sabato-domenica e paese presente nella lista prudenziale dei paesi senza visto. Esclude le destinazioni già visitate e non ripete su Telegram le offerte già segnalate.
 
-## Test manuale
+Google Travel Explore non espone in modo affidabile la regola tariffaria sul bagaglio personale: ogni messaggio richiede quindi di verificare sul sito della compagnia che lo zaino piccolo sia incluso. Il prezzo mostrato dall'API va ricontrollato prima dell'acquisto.
 
-GitHub → Actions → Test SerpApi → Run workflow. I valori predefiniti verificano separatamente VCE, TSF, MXP e BGY per il weekend 9–10 gennaio 2027.
+La copertura non è esaustiva: Google Travel può restituire zero risultati per un aeroporto o una data anche quando esistono voli venduti altrove. Un risultato vuoto viene registrato come assenza di dati, non come prova che non esistano voli.
 
-Non inserire mai API key o token nei file del repository: usare GitHub Actions Secrets.
+La lista dei paesi visa-free è intenzionalmente prudente e va mantenuta aggiornata prima di considerarla una verifica legale definitiva.
+
+## Avvio
+
+Dopo aver configurato tutti e tre i secrets, aprire **Actions → Weekend Flight Scanner → Run workflow** per un primo avvio manuale. Il primo avvio effettua la scansione completa dei weekend ancora futuri nel periodo gennaio-giugno 2027.
+
+Il workflow automatico si attiva ogni martedì alle 05:00 UTC, ma lo script esegue chiamate soltanto il primo e il terzo martedì del mese. L'orario corrisponde alle 06:00 in inverno e alle 07:00 durante l'ora legale italiana.
+
+Non inserire mai chiavi API o token nei file del repository.
