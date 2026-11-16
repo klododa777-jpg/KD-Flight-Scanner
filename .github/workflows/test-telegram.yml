@@ -1,0 +1,46 @@
+name: Test Telegram Notifications
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  test-telegram:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Send test message
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+        run: |
+          python - <<'PY'
+          import json
+          import os
+          import sys
+          import urllib.request
+          token = os.environ.get("TELEGRAM_BOT_TOKEN")
+          chat_id = os.environ.get("TELEGRAM_CHAT_ID")
+          if not token or not chat_id:
+              print("ERRORE: TELEGRAM_BOT_TOKEN o TELEGRAM_CHAT_ID non configurato.")
+              sys.exit(1)
+          url = f"https://api.telegram.org/bot{token}/sendMessage"
+          payload = json.dumps({
+              "chat_id": chat_id,
+              "text": "✅ KD Flight Scanner: collegamento Telegram funzionante. Questo è un messaggio di prova."
+          }).encode()
+          request = urllib.request.Request(
+              url, data=payload, headers={"Content-Type": "application/json"}
+          )
+          try:
+              with urllib.request.urlopen(request, timeout=20) as response:
+                  result = json.loads(response.read().decode())
+          except Exception as exc:
+              print(f"Invio Telegram non riuscito: {type(exc).__name__}")
+              sys.exit(1)
+          if not result.get("ok"):
+              print("Telegram ha rifiutato il messaggio.")
+              sys.exit(1)
+          print("Messaggio di prova inviato correttamente.")
+          PY
