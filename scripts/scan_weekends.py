@@ -301,21 +301,23 @@ def main():
         unseen = [offer for offer in offers if offer["key"] not in seen]
 
         if alert_state is None:
-            # Migrazione sicura: le offerte viste dal vecchio scanner non vengono
-            # inviate di nuovo. Si memorizza il prezzo corrente come riferimento.
-            if unseen:
-                selected = unseen[:MAX_OFFERS_PER_DESTINATION]
+            # Migrazione sicura: se una destinazione era già stata notificata
+            # dal vecchio scanner, inizializza il riferimento senza reinviare
+            # offerte più care o nuove date della stessa destinazione.
+            if any(offer["key"] in seen for offer in offers):
                 alert_state = {
                     "alerts_sent": 1,
                     "best_alerted_price": offers[0]["price"],
                 }
-            else:
-                alert_state = {
-                    "alerts_sent": 0,
-                    "best_alerted_price": offers[0]["price"],
-                }
                 alerts[destination_key] = alert_state
                 continue
+            selected = unseen[:MAX_OFFERS_PER_DESTINATION]
+            if not selected:
+                continue
+            alert_state = {
+                "alerts_sent": 1,
+                "best_alerted_price": offers[0]["price"],
+            }
         else:
             alerts_sent = int(alert_state.get("alerts_sent", 0))
             best_alerted_price = float(alert_state.get("best_alerted_price", offers[0]["price"]))
