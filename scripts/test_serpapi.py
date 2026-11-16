@@ -21,6 +21,7 @@ def main():
         "departure_id": departure_id,
         "outbound_date": outbound_date,
         "return_date": return_date,
+        "type": "1",  # andata e ritorno
         "currency": "EUR",
         "hl": "it",
         "gl": "it",
