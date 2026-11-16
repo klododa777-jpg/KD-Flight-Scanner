@@ -8,11 +8,11 @@ Scanner automatico di offerte voli weekend con notifiche Telegram.
 - Aeroporti: Venezia Marco Polo (VCE), Treviso (TSF), Milano Malpensa (MXP), Bergamo Orio al Serio (BGY)
 - Periodo: weekend sabato-domenica da gennaio a giugno 2027
 - Solo voli diretti
-- Prezzo massimo: 100 EUR A/R, tasse incluse
+- Prezzo massimo: 60 EUR A/R, tasse incluse
 - Bagaglio richiesto: solo zaino personale piccolo
 - Destinazioni già visitate escluse
 - Preferenza per paesi senza visto per passaporto albanese biometrico
-- Telegram: solo nuove offerte, deduplicate
+- Telegram: massimo 3 offerte complessive per destinazione, selezionate tra le più economiche; raggruppate in un solo messaggio per destinazione
 - Frequenza: primo e terzo martedì del mese
 
 ## Secrets GitHub Actions richiesti
@@ -36,7 +36,7 @@ Se i due secret Telegram mancano, lo scanner si ferma prima di effettuare chiama
 
 ## Filtri e limiti dei dati
 
-Lo scanner seleziona risultati con prezzo non superiore a 100 EUR, zero scali, date esatte sabato-domenica e paese presente nella lista prudenziale dei paesi senza visto. Esclude le destinazioni già visitate e non ripete su Telegram le offerte già segnalate.
+Lo scanner seleziona risultati con prezzo non superiore a 60 EUR A/R, zero scali, date esatte sabato-domenica e paese presente nella lista prudenziale dei paesi senza visto. Esclude le destinazioni già visitate. Per ogni destinazione ordina le offerte di tutti i weekend analizzati per prezzo e invia al massimo 3 offerte complessive, raggruppate in un unico messaggio; il contatore viene salvato nello stato per evitare notifiche ripetute nelle scansioni successive.
 
 Google Travel Explore non espone in modo affidabile la regola tariffaria sul bagaglio personale: ogni messaggio richiede quindi di verificare sul sito della compagnia che lo zaino piccolo sia incluso. Il prezzo mostrato dall'API va ricontrollato prima dell'acquisto.
 
