@@ -10,6 +10,7 @@ from zoneinfo import ZoneInfo
 import requests
 
 API_URL = "https://serpapi.com/search.json"
+EUROPE_AREA_ID = "/m/02j9z"  # Google Knowledge Graph ID for Europe
 STATE_PATH = Path("data/scanner_state.json")
 AIRPORTS = {
     "VCE": "Venezia Marco Polo",
@@ -236,6 +237,9 @@ def main():
             params = {
                 "engine": "google_travel_explore",
                 "departure_id": airport,
+                # Restringe l'esplorazione all'Europa: evita che le destinazioni
+                # extraeuropee occupino i risultati prima dei filtri paese.
+                "arrival_area_id": EUROPE_AREA_ID,
                 "outbound_date": outbound.isoformat(),
                 "return_date": returning.isoformat(),
                 "currency": "EUR",
