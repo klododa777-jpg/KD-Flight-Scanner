@@ -402,11 +402,10 @@ def main():
         f"- Regole: massimo **{MAX_PRICE_EUR} EUR A/R**, voli diretti, massimo **{MAX_OFFERS_PER_DESTINATION} avvisi per destinazione**.",
         "",
         "### Prezzi minimi rilevati in questa scansione",
-    ])
+    ]
     for offer in sorted(offers_found, key=lambda item: item["price"])[:10]:
         summary.append(f"- **{offer['destination']}** — {offer['price']} EUR A/R · {offer['airport']} · {offer['outbound']} → {offer['return']}")
     summary.append("")
-    ]
     summary_path = os.environ.get("GITHUB_STEP_SUMMARY")
     if summary_path:
         try:
