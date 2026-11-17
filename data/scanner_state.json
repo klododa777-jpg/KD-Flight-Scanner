@@ -1,6 +1,6 @@
 {
   "api_usage": {
-    "2026-11": 104
+    "2026-11": 160
   },
   "seen_offer_keys": [
     "0306b0117c1d83271fd0d65b667395d9d1d34321bd042c0e8b708abc5f032f2e",
@@ -10,10 +10,13 @@
     "1ea4d0187c1c0c3e6f23d93d1341890f1b8e754c3109ba78dc329a3106befa38",
     "1f6ea948ee783ee430161866d579be7e112213995d2a36a7f59042c917d1d5f4",
     "223e6b1341968cf081cfe4635b3d86099891172a5b0f9a62c963f3b43f62f4b2",
+    "2787edc1a7ebbf387d9e15d07f4142376f6a5fe920b570161962e8180f2c4724",
+    "2eaaabc40a2eda0032bc949e7133c7c399ec6dc04dd7d13265bcdd377338a9c0",
     "2f302d480f8cb8669f2f36d4f07e6b7d5e321f508f5433fc008354a80753c147",
     "3a8bbfc0072eaeac2851bf7e05f9c3a5a6a47d017d6adc1db75a1cedd7c5ea19",
     "3e0efe44a202e9893633b83271152e44a31736f20fa0a8724a58705aa8a0b03b",
     "3f8358b0434d54f212068678830fe419a4e56f941adec19408b1acdfe35748ca",
+    "41cc6ff456aeafd10a9291a7cb84cec9c5f6c6d5f2ec5036eb0b3483f816c085",
     "44b3e3650f1eb33236826141238fdbfda87c1f754cf87f1ec893931cda73bf5f",
     "484cceb969a77eed177f239b7682e5d10f728560b56d0a906c234a170bf76efb",
     "5b992608f5d35e607312abd2c38b8b204e94a37bad22c1808cc0f5263758b551",
@@ -47,6 +50,7 @@
     "b90450636cec855bff00e5c81ce15d3a38d79db967f0eee94ef179a717190bbd",
     "c047d20e7b915564557a26a2e30f25d8e7d0a7173f662b56f3b2c3e5a448085f",
     "c13d7ce66d433da3533dd4b5a7d027df306a9cb47e192204aef8004944b8e17d",
+    "c4c9b1f9a93e68749f03192703e94e7d9f8129ad72fa46fa8e220b5742609e57",
     "d1d67347673251856b94f4675651e05fee9ad558e9433004e2d30f3c5aac5174",
     "d3198edf1b9e6ec928022a241a68eb7f0c43cf61c605e8c6e99243aae4431a99",
     "d590f3278ef480cd3de0f411ae35ba6605afb03eee2c9ff07c7c75c29566e8c6",
@@ -56,5 +60,69 @@
     "f6ae03d032f78b11d69f6cec0dcf143211b65bb72d91c94ca9ece37815518002",
     "f94557bc4afce7fe2a46d12df72d966f1dd70dd8edb3b193854417bbdae10ae6",
     "f999093354642c01b97b4e2dedd4109598869cf7e95b2eb359e076c2642215de"
+  ],
+  "destination_alerts": {
+    "napoli": {
+      "alerts_sent": 1,
+      "best_alerted_price": 37
+    },
+    "marsiglia": {
+      "alerts_sent": 1,
+      "best_alerted_price": 54
+    },
+    "colonia": {
+      "alerts_sent": 1,
+      "best_alerted_price": 44
+    }
+  },
+  "destination_price_history": {
+    "napoli": [
+      {
+        "scan_date": "2026-11-17",
+        "price": 49,
+        "airport": "VCE",
+        "outbound": "2026-12-19",
+        "return": "2026-12-20"
+      }
+    ],
+    "marsiglia": [
+      {
+        "scan_date": "2026-11-17",
+        "price": 54,
+        "airport": "BGY",
+        "outbound": "2026-12-19",
+        "return": "2026-12-20"
+      }
+    ],
+    "colonia": [
+      {
+        "scan_date": "2026-11-17",
+        "price": 44,
+        "airport": "BGY",
+        "outbound": "2027-02-06",
+        "return": "2027-02-07"
+      }
+    ]
+  },
+  "scan_history": [
+    {
+      "timestamp_utc": "2026-11-17T05:51:27Z",
+      "weekends_checked": 14,
+      "window_start": "2026-12-19",
+      "window_end": "2027-03-21",
+      "airports": [
+        "VCE",
+        "TSF",
+        "MXP",
+        "BGY"
+      ],
+      "api_calls": 56,
+      "eligible_offers": 26,
+      "destinations_found": 3,
+      "telegram_messages": 2,
+      "offers_notified": 4,
+      "api_usage_month": 160,
+      "api_monthly_cap": 240
+    }
   ]
 }
